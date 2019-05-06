@@ -1,0 +1,630 @@
+Script started on 2019-05-06 17:18:59-0400
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ m[Kcat *[KHW06.pro 
+#-------------------------------------------------
+#
+# Project created by QtCreator 2019-05-01T16:02:23
+#
+#-------------------------------------------------
+
+QT       += core gui
+
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+
+TARGET = HW06
+TEMPLATE = app
+
+# The following define makes your compiler emit warnings if you use
+# any feature of Qt which has been marked as deprecated (the exact warnings
+# depend on your compiler). Please consult the documentation of the
+# deprecated API in order to know how to port your code away from it.
+DEFINES += QT_DEPRECATED_WARNINGS
+
+# You can also make your code fail to compile if you use deprecated APIs.
+# In order to do so, uncomment the following line.
+# You can also select to disable deprecated APIs only up to a certain version of Qt.
+#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+
+
+SOURCES += \
+        main.cpp \
+        puzzlewindow.cpp \
+    puzzleview.cpp \
+    puzzlemodel.cpp \
+    tile.cpp
+
+HEADERS += \
+        puzzlewindow.h \
+    puzzleview.h \
+    puzzlemodel.h \
+    tile.h
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ cat *.h
+#ifndef PUZZLEMODEL_H
+#define PUZZLEMODEL_H
+
+#include <QPushButton>
+#include <QObject>
+
+class PuzzleModel : public QObject
+{
+    Q_OBJECT
+public:
+    explicit PuzzleModel(QObject *parent = 0);
+    int value(int r, int c);
+    int slide(int tileNum);
+    bool neighboring(int r, int c);
+    QList<int> m_Positions;
+
+private:
+    int m_Rows;
+    int m_Cols;
+
+signals:
+    void gridChanged();
+
+public slots:
+    void shuffle();
+};
+
+#endif // PUZZLEMODEL_H
+#ifndef PUZZLEVIEW_H
+#define PUZZLEVIEW_H
+
+#include <QWidget>
+#include "puzzlemodel.h"
+#include "tile.h"
+#include <QGridLayout>
+#include <QButtonGroup>
+
+class PuzzleView : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit PuzzleView(PuzzleModel* model, QWidget *parent = 0);
+    void refresh();
+
+private:
+    PuzzleModel* m_Model;
+    QGridLayout* m_Layout;
+    QButtonGroup m_Buttons;
+
+signals:
+
+public slots:
+    void tryToSlide(QAbstractButton* button);
+    void updateFrame();
+};
+
+#endif // PUZZLEVIEW_H
+#ifndef PUZZLEWINDOW_H
+#define PUZZLEWINDOW_H
+
+#include <QMainWindow>
+
+class PuzzleWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    explicit PuzzleWindow(QMainWindow *parent = 0);
+
+private slots:
+
+};
+
+#endif // PUZZLEWINDOW_H
+#ifndef TILE_H
+#define TILE_H
+
+#include <QPushButton>
+#include "puzzleview.h"
+
+class Tile : public QPushButton
+{
+    Q_OBJECT
+public:
+    explicit Tile(int tileNumber, QPushButton* parent = 0);
+    int m_Number;
+};
+
+#endif // TILE_H
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ cat*[K *.cpp
+#include "puzzlewindow.h"
+#include <QApplication>
+
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+    PuzzleWindow w;
+    w.show();
+
+    return a.exec();
+}
+#include "puzzlemodel.h"
+#include <stdlib.h>
+
+PuzzleModel::PuzzleModel(QObject *parent)
+: QObject(parent), m_Rows(4), m_Cols(4)
+{
+    m_Positions = {};
+    srand(time(NULL));
+    shuffle();
+}
+
+bool duplicate(const int n, const QList<int> *lst) {
+    for (int i = 0; i < lst->size(); i++) {
+        if(lst->at(i) == n) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void PuzzleModel::shuffle() {
+    m_Positions.clear();
+    while (m_Positions.size() < m_Rows*m_Cols) {
+        int rnd = rand() % 16 + 1;
+        if (!duplicate(rnd, &m_Positions)) {
+            m_Positions.append(rnd);
+        }
+    }
+}
+
+int PuzzleModel::value(int r, int c) {
+    return m_Positions[(4*c)+r];
+}
+
+int PuzzleModel::slide(int tileNum) {
+    int i(0), j(0); //i = location of tileNum, j = location of 16
+    while(i < m_Positions.size() && j < m_Positions.size()) {
+        if (m_Positions[j] == 16 && m_Positions[i] == tileNum) break;
+        else {
+            if(m_Positions[i] != tileNum) i++;
+            if(m_Positions[j] != 16) j++;
+        }
+    }
+
+    //Swap numbers
+    int tmp = m_Positions[i];
+    m_Positions[i] = m_Positions[j];
+    m_Positions[j] = tmp;
+
+    return j;
+}
+
+bool PuzzleModel::neighboring(int r, int c) {
+    //Check Left Side
+    if(r-1 >= 0) {
+        if(value(r-1, c) == 16) {
+            return true;
+        }
+    }
+    //Check right side
+    if(r+1 < 4) {
+        if (value(r+1, c) == 16) {
+            return true;
+        }
+    }
+    //Check top side
+    if (c-1 >= 0) {
+        if (value(r, c-1) == 16) {
+            return true;
+        }
+    }
+    //Check bottom side
+    if (c+1 < 4) {
+        if (value(r, c+1) == 16) {
+            return true;
+        }
+    }
+    return false;
+}
+#include "puzzleview.h"
+#include <QMessageBox>
+#include <QApplication>
+
+PuzzleView::PuzzleView(PuzzleModel* model, QWidget *parent)
+    :QWidget(parent), m_Model(model)
+{
+    QGridLayout* m_Layout = new QGridLayout();
+    for (int i = 0; i < 4; i++) { //Columns
+        for (int j = 0; j < 4; j++) { //Rows
+            Tile* tmp = new Tile(m_Model->value(j, i));
+            m_Layout->addWidget(tmp, i, j, 0);
+            m_Buttons.addButton(tmp, (4*i)+j);
+        }
+    }
+
+    QPushButton* Shuffle = new QPushButton("Shuffle");
+    QPushButton* Quit = new QPushButton("Quit");
+    QGridLayout* buttonGrid = new QGridLayout();
+    buttonGrid->addWidget(Shuffle);
+    buttonGrid->addWidget(Quit);
+
+    connect(Shuffle, SIGNAL(clicked(bool)), m_Model, SLOT(shuffle()));
+    connect(Shuffle, SIGNAL(clicked(bool)), this, SLOT(updateFrame()));
+    connect(Quit, SIGNAL(clicked(bool)), QApplication::instance(), SLOT(quit()));
+
+    QGridLayout* mainFrame = new QGridLayout();
+    mainFrame->addLayout(m_Layout, 0, 0);
+    mainFrame->addLayout(buttonGrid, 1, 0);
+    this->setLayout(mainFrame);
+
+    connect(&m_Buttons, SIGNAL(buttonClicked(QAbstractButton*)), this, SLOT(tryToSlide(QAbstractButton*)));
+}
+
+void PuzzleView::updateFrame() {
+    int i = 0;
+    for(QAbstractButton* b: m_Buttons.buttons()) {
+        b->setText(QString("%1").arg(m_Model->m_Positions.at(i)));
+        if (b->text() == "16") b->setText("");
+        i++;
+    }
+}
+
+bool winCondition(QList<int>* arr) {
+    for (int i = 1; i < arr->size(); i++) { //Start index 1 because i-1, check index before
+        if (arr->at(i-1) > arr->at(i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void PuzzleView::tryToSlide(QAbstractButton* button) {
+    int val(button->text().toInt() == 0 ? 16 : button->text().toInt());
+    int r, c;
+    for (int i = 0; i < m_Model->m_Positions.size(); i++) {
+        if(m_Model->m_Positions[i] == val) {
+            r = ((i%4));
+            c = ((i-r)/4);
+        }
+    }
+    if(m_Model->neighboring(r, c)) {
+        int pos16 = m_Model->slide(val); //returns index of position 16
+        QAbstractButton* pointer16 = m_Buttons.buttons()[pos16];
+        pointer16->setText(button->text());
+        button->setText("");
+    }
+    if (winCondition(&(m_Model->m_Positions))) {
+        QMessageBox::information(this, "You Won!", "You have won the game, click shuffle to play again..", QMessageBox::Ok);
+    }
+}
+
+void PuzzleView::refresh() {
+
+}
+#include "puzzlewindow.h"
+#include <QGridLayout>
+#include <QPushButton>
+#include "puzzleview.h"
+
+PuzzleWindow::PuzzleWindow(QMainWindow *parent) :
+    QMainWindow(parent)
+{
+    this->setWindowTitle("Sample 15 Puzzle");
+    this->setMinimumHeight(400);
+    this->setMinimumWidth(750);
+
+    PuzzleModel* model = new PuzzleModel();
+    PuzzleView* view = new PuzzleView(model);
+    this->setCentralWidget(view);
+}
+#include "tile.h"
+
+Tile::Tile(int tileNumber, QPushButton* parent)
+:QPushButton(parent), m_Number(tileNumber)
+{
+    if(this->m_Number != 16) {
+        this->setText(QString("%1").arg(m_Number));
+    }
+    else {
+        this->setText(QString(" "));
+    }
+}
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ qmake
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ make[K[K[K[Kcat Makefile 
+#############################################################################
+# Makefile for building: HW06
+# Generated by qmake (2.01a) (Qt 4.8.7) on: Mon May 6 17:19:23 2019
+# Project:  HW06.pro
+# Template: app
+# Command: /usr/lib/x86_64-linux-gnu/qt4/bin/qmake -o Makefile HW06.pro
+#############################################################################
+
+####### Compiler, tools and options
+
+CC            = gcc
+CXX           = g++
+DEFINES       = -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED
+CFLAGS        = -m64 -pipe -O2 -Wall -W -D_REENTRANT $(DEFINES)
+CXXFLAGS      = -m64 -pipe -O2 -Wall -W -D_REENTRANT $(DEFINES)
+INCPATH       = -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I.
+LINK          = g++
+LFLAGS        = -m64 -Wl,-O1
+LIBS          = $(SUBLIBS)  -L/usr/lib/x86_64-linux-gnu -lQtGui -lQtCore -lpthread 
+AR            = ar cqs
+RANLIB        = 
+QMAKE         = /usr/lib/x86_64-linux-gnu/qt4/bin/qmake
+TAR           = tar -cf
+COMPRESS      = gzip -9f
+COPY          = cp -f
+SED           = sed
+COPY_FILE     = $(COPY)
+COPY_DIR      = $(COPY) -r
+STRIP         = strip
+INSTALL_FILE  = install -m 644 -p
+INSTALL_DIR   = $(COPY_DIR)
+INSTALL_PROGRAM = install -m 755 -p
+DEL_FILE      = rm -f
+SYMLINK       = ln -f -s
+DEL_DIR       = rmdir
+MOVE          = mv -f
+CHK_DIR_EXISTS= test -d
+MKDIR         = mkdir -p
+
+####### Output directory
+
+OBJECTS_DIR   = ./
+
+####### Files
+
+SOURCES       = main.cpp \
+		puzzlewindow.cpp \
+		puzzleview.cpp \
+		puzzlemodel.cpp \
+		tile.cpp moc_puzzlewindow.cpp \
+		moc_puzzleview.cpp \
+		moc_puzzlemodel.cpp \
+		moc_tile.cpp
+OBJECTS       = main.o \
+		puzzlewindow.o \
+		puzzleview.o \
+		puzzlemodel.o \
+		tile.o \
+		moc_puzzlewindow.o \
+		moc_puzzleview.o \
+		moc_puzzlemodel.o \
+		moc_tile.o
+DIST          = /usr/share/qt4/mkspecs/common/unix.conf \
+		/usr/share/qt4/mkspecs/common/linux.conf \
+		/usr/share/qt4/mkspecs/common/gcc-base.conf \
+		/usr/share/qt4/mkspecs/common/gcc-base-unix.conf \
+		/usr/share/qt4/mkspecs/common/g++-base.conf \
+		/usr/share/qt4/mkspecs/common/g++-unix.conf \
+		/usr/share/qt4/mkspecs/qconfig.pri \
+		/usr/share/qt4/mkspecs/features/qt_functions.prf \
+		/usr/share/qt4/mkspecs/features/qt_config.prf \
+		/usr/share/qt4/mkspecs/features/exclusive_builds.prf \
+		/usr/share/qt4/mkspecs/features/default_pre.prf \
+		/usr/share/qt4/mkspecs/features/release.prf \
+		/usr/share/qt4/mkspecs/features/default_post.prf \
+		/usr/share/qt4/mkspecs/features/shared.prf \
+		/usr/share/qt4/mkspecs/features/unix/gdb_dwarf_index.prf \
+		/usr/share/qt4/mkspecs/features/warn_on.prf \
+		/usr/share/qt4/mkspecs/features/qt.prf \
+		/usr/share/qt4/mkspecs/features/unix/thread.prf \
+		/usr/share/qt4/mkspecs/features/moc.prf \
+		/usr/share/qt4/mkspecs/features/resources.prf \
+		/usr/share/qt4/mkspecs/features/uic.prf \
+		/usr/share/qt4/mkspecs/features/yacc.prf \
+		/usr/share/qt4/mkspecs/features/lex.prf \
+		/usr/share/qt4/mkspecs/features/include_source_dir.prf \
+		HW06.pro
+QMAKE_TARGET  = HW06
+DESTDIR       = 
+TARGET        = HW06
+
+first: all
+####### Implicit rules
+
+.SUFFIXES: .o .c .cpp .cc .cxx .C
+
+.cpp.o:
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+
+.cc.o:
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+
+.cxx.o:
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+
+.C.o:
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o "$@" "$<"
+
+.c.o:
+	$(CC) -c $(CFLAGS) $(INCPATH) -o "$@" "$<"
+
+####### Build rules
+
+all: Makefile $(TARGET)
+
+$(TARGET):  $(OBJECTS)  
+	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
+
+Makefile: HW06.pro  /usr/share/qt4/mkspecs/linux-g++-64/qmake.conf /usr/share/qt4/mkspecs/common/unix.conf \
+		/usr/share/qt4/mkspecs/common/linux.conf \
+		/usr/share/qt4/mkspecs/common/gcc-base.conf \
+		/usr/share/qt4/mkspecs/common/gcc-base-unix.conf \
+		/usr/share/qt4/mkspecs/common/g++-base.conf \
+		/usr/share/qt4/mkspecs/common/g++-unix.conf \
+		/usr/share/qt4/mkspecs/qconfig.pri \
+		/usr/share/qt4/mkspecs/features/qt_functions.prf \
+		/usr/share/qt4/mkspecs/features/qt_config.prf \
+		/usr/share/qt4/mkspecs/features/exclusive_builds.prf \
+		/usr/share/qt4/mkspecs/features/default_pre.prf \
+		/usr/share/qt4/mkspecs/features/release.prf \
+		/usr/share/qt4/mkspecs/features/default_post.prf \
+		/usr/share/qt4/mkspecs/features/shared.prf \
+		/usr/share/qt4/mkspecs/features/unix/gdb_dwarf_index.prf \
+		/usr/share/qt4/mkspecs/features/warn_on.prf \
+		/usr/share/qt4/mkspecs/features/qt.prf \
+		/usr/share/qt4/mkspecs/features/unix/thread.prf \
+		/usr/share/qt4/mkspecs/features/moc.prf \
+		/usr/share/qt4/mkspecs/features/resources.prf \
+		/usr/share/qt4/mkspecs/features/uic.prf \
+		/usr/share/qt4/mkspecs/features/yacc.prf \
+		/usr/share/qt4/mkspecs/features/lex.prf \
+		/usr/share/qt4/mkspecs/features/include_source_dir.prf \
+		/usr/lib/x86_64-linux-gnu/libQtGui.prl \
+		/usr/lib/x86_64-linux-gnu/libQtCore.prl
+	$(QMAKE) -o Makefile HW06.pro
+/usr/share/qt4/mkspecs/common/unix.conf:
+/usr/share/qt4/mkspecs/common/linux.conf:
+/usr/share/qt4/mkspecs/common/gcc-base.conf:
+/usr/share/qt4/mkspecs/common/gcc-base-unix.conf:
+/usr/share/qt4/mkspecs/common/g++-base.conf:
+/usr/share/qt4/mkspecs/common/g++-unix.conf:
+/usr/share/qt4/mkspecs/qconfig.pri:
+/usr/share/qt4/mkspecs/features/qt_functions.prf:
+/usr/share/qt4/mkspecs/features/qt_config.prf:
+/usr/share/qt4/mkspecs/features/exclusive_builds.prf:
+/usr/share/qt4/mkspecs/features/default_pre.prf:
+/usr/share/qt4/mkspecs/features/release.prf:
+/usr/share/qt4/mkspecs/features/default_post.prf:
+/usr/share/qt4/mkspecs/features/shared.prf:
+/usr/share/qt4/mkspecs/features/unix/gdb_dwarf_index.prf:
+/usr/share/qt4/mkspecs/features/warn_on.prf:
+/usr/share/qt4/mkspecs/features/qt.prf:
+/usr/share/qt4/mkspecs/features/unix/thread.prf:
+/usr/share/qt4/mkspecs/features/moc.prf:
+/usr/share/qt4/mkspecs/features/resources.prf:
+/usr/share/qt4/mkspecs/features/uic.prf:
+/usr/share/qt4/mkspecs/features/yacc.prf:
+/usr/share/qt4/mkspecs/features/lex.prf:
+/usr/share/qt4/mkspecs/features/include_source_dir.prf:
+/usr/lib/x86_64-linux-gnu/libQtGui.prl:
+/usr/lib/x86_64-linux-gnu/libQtCore.prl:
+qmake:  FORCE
+	@$(QMAKE) -o Makefile HW06.pro
+
+dist: 
+	@$(CHK_DIR_EXISTS) .tmp/HW061.0.0 || $(MKDIR) .tmp/HW061.0.0 
+	$(COPY_FILE) --parents $(SOURCES) $(DIST) .tmp/HW061.0.0/ && $(COPY_FILE) --parents puzzlewindow.h puzzleview.h puzzlemodel.h tile.h .tmp/HW061.0.0/ && $(COPY_FILE) --parents main.cpp puzzlewindow.cpp puzzleview.cpp puzzlemodel.cpp tile.cpp .tmp/HW061.0.0/ && (cd `dirname .tmp/HW061.0.0` && $(TAR) HW061.0.0.tar HW061.0.0 && $(COMPRESS) HW061.0.0.tar) && $(MOVE) `dirname .tmp/HW061.0.0`/HW061.0.0.tar.gz . && $(DEL_FILE) -r .tmp/HW061.0.0
+
+
+clean:compiler_clean 
+	-$(DEL_FILE) $(OBJECTS)
+	-$(DEL_FILE) *~ core *.core
+
+
+####### Sub-libraries
+
+distclean: clean
+	-$(DEL_FILE) $(TARGET) 
+	-$(DEL_FILE) Makefile
+
+
+check: first
+
+mocclean: compiler_moc_header_clean compiler_moc_source_clean
+
+mocables: compiler_moc_header_make_all compiler_moc_source_make_all
+
+compiler_moc_header_make_all: moc_puzzlewindow.cpp moc_puzzleview.cpp moc_puzzlemodel.cpp moc_tile.cpp
+compiler_moc_header_clean:
+	-$(DEL_FILE) moc_puzzlewindow.cpp moc_puzzleview.cpp moc_puzzlemodel.cpp moc_tile.cpp
+moc_puzzlewindow.cpp: puzzlewindow.h
+	/usr/lib/x86_64-linux-gnu/qt4/bin/moc $(DEFINES) $(INCPATH) puzzlewindow.h -o moc_puzzlewindow.cpp
+
+moc_puzzleview.cpp: puzzlemodel.h \
+		tile.h \
+		puzzleview.h \
+		puzzleview.h
+	/usr/lib/x86_64-linux-gnu/qt4/bin/moc $(DEFINES) $(INCPATH) puzzleview.h -o moc_puzzleview.cpp
+
+moc_puzzlemodel.cpp: puzzlemodel.h
+	/usr/lib/x86_64-linux-gnu/qt4/bin/moc $(DEFINES) $(INCPATH) puzzlemodel.h -o moc_puzzlemodel.cpp
+
+moc_tile.cpp: puzzleview.h \
+		puzzlemodel.h \
+		tile.h \
+		tile.h
+	/usr/lib/x86_64-linux-gnu/qt4/bin/moc $(DEFINES) $(INCPATH) tile.h -o moc_tile.cpp
+
+compiler_rcc_make_all:
+compiler_rcc_clean:
+compiler_image_collection_make_all: qmake_image_collection.cpp
+compiler_image_collection_clean:
+	-$(DEL_FILE) qmake_image_collection.cpp
+compiler_moc_source_make_all:
+compiler_moc_source_clean:
+compiler_uic_make_all:
+compiler_uic_clean:
+compiler_yacc_decl_make_all:
+compiler_yacc_decl_clean:
+compiler_yacc_impl_make_all:
+compiler_yacc_impl_clean:
+compiler_lex_make_all:
+compiler_lex_clean:
+compiler_clean: compiler_moc_header_clean 
+
+####### Compile
+
+main.o: main.cpp puzzlewindow.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o main.cpp
+
+puzzlewindow.o: puzzlewindow.cpp puzzlewindow.h \
+		puzzleview.h \
+		puzzlemodel.h \
+		tile.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o puzzlewindow.o puzzlewindow.cpp
+
+puzzleview.o: puzzleview.cpp puzzleview.h \
+		puzzlemodel.h \
+		tile.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o puzzleview.o puzzleview.cpp
+
+puzzlemodel.o: puzzlemodel.cpp puzzlemodel.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o puzzlemodel.o puzzlemodel.cpp
+
+tile.o: tile.cpp tile.h \
+		puzzleview.h \
+		puzzlemodel.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o tile.o tile.cpp
+
+moc_puzzlewindow.o: moc_puzzlewindow.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_puzzlewindow.o moc_puzzlewindow.cpp
+
+moc_puzzleview.o: moc_puzzleview.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_puzzleview.o moc_puzzleview.cpp
+
+moc_puzzlemodel.o: moc_puzzlemodel.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_puzzlemodel.o moc_puzzlemodel.cpp
+
+moc_tile.o: moc_tile.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_tile.o moc_tile.cpp
+
+####### Install
+
+install:   FORCE
+
+uninstall:   FORCE
+
+FORCE:
+
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ make
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o main.o main.cpp
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o puzzlewindow.o puzzlewindow.cpp
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o puzzleview.o puzzleview.cpp
+[01m[Kpuzzleview.cpp:[m[K In member function ‘[01m[Kvoid PuzzleView::tryToSlide(QAbstractButton*)[m[K’:
+[01m[Kpuzzleview.cpp:62:28:[m[K [01;35m[Kwarning: [m[K‘[01m[Kc[m[K’ may be used uninitialized in this function [[01;35m[K-Wmaybe-uninitialized[m[K]
+     if([01;35m[Km_Model->neighboring(r, c)[m[K) {
+        [01;35m[K~~~~~~~~~~~~~~~~~~~~^~~~~~[m[K
+[01m[Kpuzzleview.cpp:62:28:[m[K [01;35m[Kwarning: [m[K‘[01m[Kr[m[K’ may be used uninitialized in this function [[01;35m[K-Wmaybe-uninitialized[m[K]
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o puzzlemodel.o puzzlemodel.cpp
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o tile.o tile.cpp
+/usr/lib/x86_64-linux-gnu/qt4/bin/moc -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. puzzlewindow.h -o moc_puzzlewindow.cpp
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o moc_puzzlewindow.o moc_puzzlewindow.cpp
+/usr/lib/x86_64-linux-gnu/qt4/bin/moc -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. puzzleview.h -o moc_puzzleview.cpp
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o moc_puzzleview.o moc_puzzleview.cpp
+/usr/lib/x86_64-linux-gnu/qt4/bin/moc -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. puzzlemodel.h -o moc_puzzlemodel.cpp
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o moc_puzzlemodel.o moc_puzzlemodel.cpp
+/usr/lib/x86_64-linux-gnu/qt4/bin/moc -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. tile.h -o moc_tile.cpp
+g++ -c -m64 -pipe -O2 -Wall -W -D_REENTRANT -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED -I/usr/share/qt4/mkspecs/linux-g++-64 -I. -I/usr/include/qt4/QtCore -I/usr/include/qt4/QtGui -I/usr/include/qt4 -I. -o moc_tile.o moc_tile.cpp
+g++ -m64 -Wl,-O1 -o HW06 main.o puzzlewindow.o puzzleview.o puzzlemodel.o tile.o moc_puzzlewindow.o moc_puzzleview.o moc_puzzlemodel.o moc_tile.o    -L/usr/lib/x86_64-linux-gnu -lQtGui -lQtCore -lpthread 
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ ./HW06 
+Gtk-[1;32mMessage[0m: [34m17:19:50.150[0m: Failed to load module "canberra-gtk-module"
+]0;gosalrio@ken-Stealth: ~/HW06[01;32mgosalrio@ken-Stealth[00m:[01;34m~/HW06[00m$ exit
+exit
+
+Script done on 2019-05-06 17:19:58-0400
