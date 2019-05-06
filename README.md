@@ -7,4 +7,7 @@
  * Add some buttons:
 
   * Shuffle – Randomize the tiles, by performing a large number (at least 50) of legal tile-slides.
-  * Quit – Terminate the game. 
+  * Quit – Terminate the game.
+
+![Fig. 9.13](https://www.ics.com/designpatterns/slides/src/puzzle/15-puzzle.png)
+
